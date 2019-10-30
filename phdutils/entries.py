@@ -25,21 +25,10 @@ def complex_gaussian(mean, cov, size):
     X = XY[:,:mean.shape[0]]
     Y = XY[:,mean.shape[0]:]
 
-    # transpose the generated data to match the paper notations: the M-dimensional individuals are column-stacked
+    # transpose the generated data to match the paper notations: the M-dimensional individuals are column-stacked (size MxN)
     return (X + 1j * Y).T
 
 
-def real_gaussian(mean, cov, size):
-    X = np.random.multivariate_normal(mean=np.real(mean), cov=np.real(cov), size=size)
-    return X.T
-
-
-def bernouilli(mean, cov, size):
-    p = 0.5
-    return (scipy.stats.bernoulli.rvs(p, size=(mean.shape[0], size))-0.5)*2
-    #return scipy.stats.laplace.rvs(size=(mean.shape[0], size))
-    #return scipy.stats.pareto.rvs(b=2, size=(mean.shape[0], size))
-    #return scipy.stats.cauchy.rvs(size=(mean.shape[0], size))
 
 
 def build_time_serie(eps, MA, AR):
@@ -74,9 +63,6 @@ def gen_data(N, M, cov=None, MA=None, AR=None, burn=100):
         AR = np.zeros(M)
 
     eps = complex_gaussian(mean=np.zeros(M), cov=cov, size=N+burn)
-    #eps = bernouilli(mean=np.zeros(M), cov=cov, size=N+burn)
-    #print(eps[:10,:10])
-    #eps = real_gaussian(mean=np.zeros(M), cov=cov, size=N+burn)
 
     Y = build_time_serie(eps=eps, MA=MA, AR=AR)
     return Y[:,burn:]
