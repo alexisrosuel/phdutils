@@ -66,3 +66,20 @@ def gen_data(N, M, cov=None, MA=None, AR=None, burn=100):
 
     Y = build_time_serie(eps=eps, MA=MA, AR=AR)
     return Y[:,burn:]
+
+
+
+def generate_y_state_space(N, M, A, B, C, D):
+    v = complex_gaussian(mean=np.zeros(M), cov=np.identity(M), size=N)
+    x = np.zeros((M,N))
+    y = np.zeros((M,N))
+
+    #initialisation
+    x[:,0] = v[:,0]
+    y[:,0] = C@x[:,0] + D@v[:,0]
+
+    for i in range(1,N):
+        x[:,i] = A@x[:,i-1] + B@v[:,i]
+        y[:,i] = C@x[:,i] + D@v[:,i]
+
+    return y
