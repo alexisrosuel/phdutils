@@ -1,10 +1,9 @@
 import numpy as np
 import scipy.fftpack
-
+from numba import jit
 
 def get_Fn(N):
     return np.arange(-0.5,0.5,1/N)
-
 
 
 def ksi(Y):
@@ -59,8 +58,7 @@ def S_hat_old(B, Y, nus=None):
 
 
 
-
-def S_hat(B, Y):
+def compute_S_hats(B, Y, nu=None):
     """
     Calcule l'estimateur de la densité spectrale de la série temporelle Y par la méthode du smoothed periodogram
     pour toutes les fréquences de Fourier
@@ -76,29 +74,44 @@ def S_hat(B, Y):
     M, N = Y.shape
     fft_Y = scipy.fftpack.fft(Y, axis=1)/np.sqrt(N)
     fft_Y = fft_Y[:,:,np.newaxis]
+    fft_Y = np.swapaxes(fft_Y, 1, 0)
 
-    periodogram = [fft_Y[:,i,:] @ np.conj(fft_Y[:,i,:].T) for i in range(N)]
-    periodogram = np.array(periodogram)
+    if nu is not None:
+        indice_0 = N*(nu + 0.5) # transformation des fréquences (0 -> -0.5, 1 -> -0.5+1/N, etc.)
+        indices = np.array([indice_0 + b for b in np.arange(-B/2,B/2+1,1)])
 
-    h = np.zeros((N,M,M))
-    debut, fin = int(N/2-B/2), int(N/2+B/2)+1
-    h[debut:fin,:,:] = 1/(fin-debut)
+        indices = indices.astype(int)
+        indices = indices % N
 
-    #np.sum(np.exp(-2*1j*np.pi*k_range*n_range/N))
-    #h_fft = np.ones((M,M))/(B+1) *
+        fft_Y = fft_Y[indices, :, :]
 
-    #S_hats = [np.sum(h[:-n,:,:] * np.flip(periodogram[:-n,:,:], axis=0), axis=0) for n in range(1,N)]
-    #S_hats = np.array(S_hats)
+    #periodogram = [fft_Y[:,i,:] @ np.conj(fft_Y[:,i,:].T) for i in range(N)]
+    #periodogram = np.array(periodogram)
 
-    S_hats = scipy.fftpack.ifft(scipy.fftpack.fft(h, axis=0) * scipy.fftpack.fft(periodogram, axis=0), axis=0)
-    S_hats = scipy.fftpack.fftshift(S_hats) # pour retrouver le même ordre que la fft_Y : [0,1,...,N/2,-N/2,...-1]
+
+    periodogram = np.einsum('ijk,imk->ijm', fft_Y, np.conj(fft_Y), optimize=True)
+    # fft_Y*np.conj(fft_Y)[:,None,:,0]
+
+    if nu is None:
+        h = np.zeros((N,M,M))
+        debut, fin = int(N/2-B/2), int(N/2+B/2)+1
+        h[debut:fin,:,:] = 1/(fin-debut)
+
+        S_hats = scipy.fftpack.ifft(scipy.fftpack.fft(h, axis=0) * scipy.fftpack.fft(periodogram, axis=0), axis=0)
+
+    else:
+        #S_hats = np.mean(periodogram[indices,:,:], axis=0)
+        S_hats = np.mean(periodogram, axis=0)
+        S_hats = np.array([S_hats])
+        #components = fft_Y[:,indices] @ np.conj(fft_Y[:,indices].T)
+        #S_hats.append(components / (B+1))
+
     return S_hats
 
 
 
 
-
-def S_hat_cor(B, Y):
+def compute_C_hats(B, Y, nu=None):
     """
     Calcule l'estimateur de la matrice de cohérence spectrale.
 
@@ -110,12 +123,12 @@ def S_hat_cor(B, Y):
     output:
         estimateur, matrice de taille MxM
     """
-    S_hats_computed = S_hat(B=B, Y=Y)
+    S_hats = compute_S_hats(B=B, Y=Y, nu=nu)
 
-    S_hats_cor = np.zeros(S_hats_computed.shape)
-    for i in range(S_hats_computed.shape[0]):
-        diag = np.diagonal(S_hats_computed[i,:,:])
+    C_hats = np.zeros(S_hats.shape)
+    for i in range(S_hats.shape[0]):
+        diag = np.diagonal(S_hats[i,:,:])
         diag = diag**(-1/2)
         diag = np.diag(diag)
-        S_hats_cor[i,:,:] = diag @ S_hats_computed[i,:,:] @ diag
-    return S_hats_cor
+        C_hats[i,:,:] = diag @ S_hats[i,:,:] @ diag
+    return C_hats
