@@ -125,7 +125,7 @@ def compute_C_hats(B, Y, nu=None):
     """
     S_hats = compute_S_hats(B=B, Y=Y, nu=nu)
 
-    C_hats = np.zeros(S_hats.shape)
+    C_hats = np.zeros(S_hats.shape)+1j*np.zeros(S_hats.shape)
     for i in range(S_hats.shape[0]):
         diag = np.diagonal(S_hats[i,:,:])
         diag = diag**(-1/2)

@@ -71,8 +71,8 @@ def gen_data(N, M, cov=None, MA=None, AR=None, burn=100):
 
 def generate_y_state_space(N, M, A, B, C, D):
     v = complex_gaussian(mean=np.zeros(M), cov=np.identity(M), size=N)
-    x = np.zeros((M,N))
-    y = np.zeros((M,N))
+    x = np.zeros((M,N),dtype=complex)#+1j*np.zeros((M,N))
+    y = np.zeros((M,N),dtype=complex)#+1j*np.zeros((M,N))
 
     #initialisation
     x[:,0] = v[:,0]
