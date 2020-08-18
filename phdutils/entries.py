@@ -69,17 +69,17 @@ def gen_data(N, M, cov=None, MA=None, AR=None, burn=100):
 
 
 
-def generate_y_state_space(N, M, A, B, C, D):
+def generate_y_state_space(N, M, A_sim, B_sim, C_sim, D_sim):
     v = complex_gaussian(mean=np.zeros(M), cov=np.identity(M), size=N)
     x = np.zeros((M,N),dtype=complex)#+1j*np.zeros((M,N))
     y = np.zeros((M,N),dtype=complex)#+1j*np.zeros((M,N))
 
     #initialisation
     x[:,0] = v[:,0]
-    y[:,0] = C@x[:,0] + D@v[:,0]
+    y[:,0] = C_sim@x[:,0] + D_sim@v[:,0]
 
     for i in range(1,N):
-        x[:,i] = A@x[:,i-1] + B@v[:,i]
-        y[:,i] = C@x[:,i] + D@v[:,i]
+        x[:,i] = A_sim@x[:,i-1] + B_sim@v[:,i]
+        y[:,i] = C_sim@x[:,i] + D_sim@v[:,i]
 
     return y
