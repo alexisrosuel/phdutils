@@ -1,6 +1,5 @@
 import numpy as np
 import scipy.fftpack
-from numba import jit
 
 def get_Fn(N):
     return np.arange(-0.5,0.5,1/N)
@@ -87,10 +86,7 @@ def compute_S_hats(B, Y, nu=None):
 
     #periodogram = [fft_Y[:,i,:] @ np.conj(fft_Y[:,i,:].T) for i in range(N)]
     #periodogram = np.array(periodogram)
-
-
     periodogram = np.einsum('ijk,imk->ijm', fft_Y, np.conj(fft_Y), optimize=True)
-    # fft_Y*np.conj(fft_Y)[:,None,:,0]
 
     if nu is None:
         h = np.zeros((N,M,M))
@@ -100,11 +96,8 @@ def compute_S_hats(B, Y, nu=None):
         S_hats = scipy.fftpack.ifft(scipy.fftpack.fft(h, axis=0) * scipy.fftpack.fft(periodogram, axis=0), axis=0)
 
     else:
-        #S_hats = np.mean(periodogram[indices,:,:], axis=0)
         S_hats = np.mean(periodogram, axis=0)
         S_hats = np.array([S_hats])
-        #components = fft_Y[:,indices] @ np.conj(fft_Y[:,indices].T)
-        #S_hats.append(components / (B+1))
 
     return S_hats
 

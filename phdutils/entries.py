@@ -4,6 +4,19 @@ import scipy.stats
 
 
 
+
+def generate_parameters(M, theta, beta, delta, gamma):
+    A_sim = theta*np.identity(M) + beta*np.diag(np.ones(M-1), k=-1)
+    B_sim = np.identity(M)
+    C_sim = np.identity(M)
+    D_sim = np.zeros((M,M))
+    for i in range(M):
+        D_sim += (np.diag(gamma**(M-i-1)*np.ones(M-i), k=i))
+    D_sim *= delta
+    return (A_sim,B_sim,C_sim,D_sim)
+
+
+
 def complex_gaussian(mean, cov, size):
     """
     Generate iid cicurlary complex gaussian sample
@@ -29,6 +42,53 @@ def complex_gaussian(mean, cov, size):
     return (X + 1j * Y).T
 
 
+
+
+def generate_Y_state_space(N, A_sim, B_sim, C_sim, D_sim):
+    M = A_sim.shape[0]
+
+    v = complex_gaussian(mean=np.zeros(M), cov=np.identity(M), size=N)
+    x = np.zeros((M,N),dtype=complex)#+1j*np.zeros((M,N))
+    y = np.zeros((M,N),dtype=complex)#+1j*np.zeros((M,N))
+
+    #initialisation
+    x[:,0] = v[:,0]
+    y[:,0] = C_sim@x[:,0] + D_sim@v[:,0]
+
+    for i in range(1,N):
+        x[:,i] = A_sim@x[:,i-1] + B_sim@v[:,i]
+        y[:,i] = C_sim@x[:,i] + D_sim@v[:,i]
+
+    return y
+
+
+
+
+
+def generate_Y_sample(N, A_sim, B_sim, C_sim, D_sim, nb_repeat):
+    '''
+    Generate nb_repeat time series with parameter N, M, A_sim, B_sim, C_sim, D_sim
+    return Ys[nb_repeat, M, N]
+    '''
+    Ys = []
+    for repeat in range(nb_repeat):
+        print('Simulating time series : %s / %s' % (repeat, nb_repeat) , end='\r')
+        Y = generate_Y_state_space(N=N, A_sim=A_sim, B_sim=B_sim, C_sim=C_sim, D_sim=D_sim)
+        Ys.append(Y)
+    return np.array(Ys)
+
+
+
+
+
+
+
+
+
+
+
+
+##################### OLD VERSION ####################
 
 
 def build_time_serie(eps, MA, AR):
@@ -69,17 +129,9 @@ def gen_data(N, M, cov=None, MA=None, AR=None, burn=100):
 
 
 
-def generate_y_state_space(N, M, A_sim, B_sim, C_sim, D_sim):
-    v = complex_gaussian(mean=np.zeros(M), cov=np.identity(M), size=N)
-    x = np.zeros((M,N),dtype=complex)#+1j*np.zeros((M,N))
-    y = np.zeros((M,N),dtype=complex)#+1j*np.zeros((M,N))
-
-    #initialisation
-    x[:,0] = v[:,0]
-    y[:,0] = C_sim@x[:,0] + D_sim@v[:,0]
-
+def gen_y_ar(N,M,theta):
+    epsilons = complex_gaussian(mean=np.zeros(M), cov=np.identity(M), size=N)
+    y = epsilons
     for i in range(1,N):
-        x[:,i] = A_sim@x[:,i-1] + B_sim@v[:,i]
-        y[:,i] = C_sim@x[:,i] + D_sim@v[:,i]
-
+        y[:,i] = theta*y[:,i-1] + epsilons[:,i]
     return y
