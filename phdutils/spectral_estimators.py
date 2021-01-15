@@ -2,6 +2,9 @@ import numpy as np
 import scipy.fftpack
 
 def get_Fn(N):
+    """
+    Return Fourier frequencies
+    """
     return np.arange(-0.5,0.5,1/N)
 
 
@@ -76,7 +79,7 @@ def compute_S_hats(B, Y, nu=None):
     fft_Y = np.swapaxes(fft_Y, 1, 0)
 
     if nu is not None:
-        indice_0 = N*(nu + 0.5) # transformation des fréquences (0 -> -0.5, 1 -> -0.5+1/N, etc.)
+        indice_0 = N*nu # transformation des fréquences (0 -> -0.5, 1 -> -0.5+1/N, etc.)
         indices = np.array([indice_0 + b for b in np.arange(-B/2,B/2+1,1)])
 
         indices = indices.astype(int)
@@ -90,7 +93,7 @@ def compute_S_hats(B, Y, nu=None):
 
     if nu is None:
         h = np.zeros((N,M,M))
-        debut, fin = int(N/2-B/2), int(N/2+B/2)+1
+        debut, fin = int(N/2-B/2)-1, int(N/2+B/2)+1
         h[debut:fin,:,:] = 1/(fin-debut)
 
         S_hats = scipy.fftpack.ifft(scipy.fftpack.fft(h, axis=0) * scipy.fftpack.fft(periodogram, axis=0), axis=0)
@@ -125,3 +128,23 @@ def compute_C_hats(B, Y, nu=None):
         diag = np.diag(diag)
         C_hats[i,:,:] = diag @ S_hats[i,:,:] @ diag
     return C_hats
+
+
+
+
+
+############# "Shortcut functions" #############
+
+
+def compute_C_hats_sample_from_Ys(Ys, B, nu=None):
+    '''
+    Compute C_hats for each repeat of the time series
+    '''
+    C_hats_sample = []
+    nb_repeat = Ys.shape[0]
+    for repeat in range(nb_repeat):
+        print('Computing C_hats %s / %s' % (repeat, nb_repeat), end='\r')
+        Y = Ys[repeat,:,:]
+        C_hats = compute_C_hats(Y=Y, B=B, nu=nu)
+        C_hats_sample.append(C_hats)
+    return C_hats_sample

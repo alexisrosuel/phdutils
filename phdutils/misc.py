@@ -20,8 +20,11 @@ def get_B(alpha=None, c=None, N=None, M=None):
 
 
 
-def compute_repartition(sample, y_range):
+def compute_repartition(sample, x_range):
+    """
+    Return the empirical cummulative distribution given a s sample
+    """
     repartition = []
-    for y in y_range:
-        repartition.append(np.mean(sample<y))
+    for x in x_range:
+        repartition.append(np.mean(sample<x))
     return np.array(repartition)

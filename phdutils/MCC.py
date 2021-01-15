@@ -1,9 +1,16 @@
 import numpy as np
+import scipy.stats
 
 
-def compute_MCC(C_hats, mask):
+from .spectral_estimators import compute_C_hats, compute_C_hats_sample_from_Ys
+
+# MCC : Maximum Cross Coherency
+# MCCT : Maximum Cross Coherency Test
+
+
+def compute_MCC(C_hats):
     '''
-    Compute the MCC (scalar) from C_hats (length N) with specified mask
+    Compute the MCC (scalar) over all C_hats (length N)
     '''
     max_provisoire = []
     for C_hat in C_hats:
@@ -11,70 +18,91 @@ def compute_MCC(C_hats, mask):
         np.fill_diagonal(C_hat_square, -np.inf)
         max_C_square = np.max(C_hat_square)
         max_provisoire.append(float(max_C_square))
-    max_provisoire = np.array(max_provisoire)*mask
+    max_provisoire = np.array(max_provisoire)
     return np.max(max_provisoire)
 
 
 
-
-def scale_MCC(N, B, M, MCC):
-    an = -np.log(N/(B+1)) -np.log(M*(M-1)/2)
+def scale_MCC(MCC, M, B, N, nu_fixed=False):
+    """
+    Compute the normalization of the MCC given M and the number of frequencies considered.
+    """
+    mask = create_mask(N=N, B=B, nu_fixed=nu_fixed)
+    an = -np.log(np.sum(mask)) -np.log(M*(M-1)/2)
     MCC_scaled = (B+1)*MCC + an
     return MCC_scaled
 
 
 
-def create_mask(N, B):
+def create_mask(N, B, nu_fixed=False):
     mask = np.zeros(N)
-    for i in range(int(N/(B+1))):
-        mask[i*(B+1)] = 1
+    mask[0] = 1
+
+    if not nu_fixed:
+        i = 0
+        while i*(B+1) < N-B:
+            mask[i*(B+1)]=1
+            i = i+1
+
     return mask
 
 
-def compute_MCCs_from_C_hats_sample(C_hats_sample, B, N):
+
+def get_GN(N, B):
+    """
+    GN is the subset of the Fourier frequencies k/N, where two consecutive elements are separated by B elements
+    """
+    mask = create_mask(N=N, B=B)
+    GN = np.arange(-0.5,0.5, 1/N) * mask
+    GN = np.unique(GN)
+    return GN
+
+
+
+####### Tests #######
+
+def compute_MCCT(MCC, N, B, M, alpha_T):
+    q_1_moins_alpha = scipy.stats.gumbel_r().ppf(1-alpha_T)
+    return scale_MCC(B=B, M=M, N=N, MCC=MCC, nu_fixed=False) > q_1_moins_alpha
+
+
+
+def compute_WZT(MCC, N, B, alpha_T):
+    q_1_moins_alpha = scipy.stats.gumbel_r().ppf(1-alpha_T)
+    return scale_MCC(B=B, M=2, N=N, MCC=MCC, nu_fixed=False) > q_1_moins_alpha
+
+
+
+
+
+
+
+############# "Shortcut functions" #############
+
+
+def compute_MCC_from_C_hats_sample(C_hats_sample):
     '''
     Return the MCC for each time series
     '''
     MCCs = []
-    mask = create_mask(N=N, B=B)
+
     for C_hats in C_hats_sample:
-        MCC = compute_MCC(C_hats=C_hats, mask=mask)
-        MCCs.append(MCC)
-    return np.array(MCCs)
-
-
-def compute_C_hats_sample_from_Ys(Ys, B):
-    '''
-    Compute C_hats for each repeat of the time series
-    '''
-    C_hats_sample = []
-    for repeat in range(Ys.shape[0]):
-        Y = Ys[repeat,:,:]
-        C_hats = compute_C_hats(Y=Y, B=B)
-        C_hats_sample.append(C_hats)
-    return C_hats_sample
-
-
-def compute_MCCs_from_Ys(Ys, B):
-    '''
-    Compute C_hats for each repeat of the time series
-    '''
-    nb_repeat, M, N = Ys.shape
-    mask = create_mask(N=N, B=B)
-
-    MCCs = []
-    for repeat in range(nb_repeat):
-        Y = Ys[repeat,:,:]
-        C_hats = compute_C_hats(Y=Y, B=B)
-        MCC = compute_MCC(C_hats=C_hats, mask=mask)
+        MCC = compute_MCC(C_hats=C_hats)
         MCCs.append(MCC)
     return np.array(MCCs)
 
 
 
 
-def compute_MCCs_from_Ys_2(Ys, B):
+
+
+def compute_MCC_from_Ys(Ys, B, nu_fixed=False):
+    '''
+    Compute C_hats for each repeat of the time series
+    '''
     N = Ys.shape[-1]
-    C_hats_repeats = compute_C_hats_sample_from_Ys(Ys=Ys, B=B)
-    MCCs = compute_MCCs_from_C_hats_sample(C_hats_sample=C_hats_sample, B=B, N=N)
+    nu_to_compute = get_GN(N=N, B=B)
+
+    C_hats_sample = [compute_C_hats_sample_from_Ys(Ys=Ys, B=B, nu=nu)[0] for nu in nu_to_compute]
+    MCCs = compute_MCC_from_C_hats_sample(C_hats_sample=C_hats_sample)
     return MCCs
