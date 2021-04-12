@@ -53,7 +53,7 @@ def get_GN(N, B):
     GN is the subset of the Fourier frequencies k/N, where two consecutive elements are separated by B elements
     """
     mask = create_mask(N=N, B=B)
-    GN = np.arange(-0.5,0.5, 1/N) * mask
+    GN = np.linspace(-0.5,0.5, N) * mask
     GN = np.unique(GN)
     return GN
 

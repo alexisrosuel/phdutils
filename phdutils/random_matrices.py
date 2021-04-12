@@ -73,3 +73,27 @@ def phi(gamma, c):
     indices_in_support = (gamma<np.sqrt(c)) and (gamma>-np.sqrt(c))
     result[indices_in_support] = (1+np.sqrt(c))**2
     return result
+
+
+
+
+def t_mp(z, c):
+    """
+    Stieltjes transform of the MP distribution
+    """
+    if c==0:
+        return 1/(z-1)
+
+    lambda_plus, lambda_moins = (1+np.sqrt(c))**2, (1-np.sqrt(c))**2,
+    produit = (z-lambda_plus)*(z-lambda_moins)
+    angle = np.angle(produit)
+    if angle <0:
+        angle = 2*np.pi+angle
+    sqrt_produit = np.sqrt(np.absolute(produit))*np.exp(1j*angle/2)
+    numerateur = -(z+(c-1)) + sqrt_produit
+    denominateur = 2*z*c
+    return numerateur / denominateur
+
+
+def t_mp_tilde(z,c):
+    return -1/(z*(1+c*t_mp(z, c)))
