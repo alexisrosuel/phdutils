@@ -1,4 +1,5 @@
 import numpy as np
+import scipy.integrate
 
 def get_M(c=None, alpha=None, B=None, N=None):
     if B is not None:
@@ -28,3 +29,27 @@ def compute_repartition(sample, x_range):
     for x in x_range:
         repartition.append(np.mean(sample<x))
     return np.array(repartition)
+
+
+
+def complex_integration(f, a, b):
+    return scipy.integrate.quad(lambda x: np.real(f(x)), a=a, b=b)[0] + 1j*scipy.integrate.quad(lambda x: np.imag(f(x)), a=a, b=b)[0]
+
+
+
+def contour_integral(f, R):
+    """
+    Compute the contour integral of f over the circle C(0,R). The integral is normalized by 2i pi
+    """
+    cont_int = complex_integration(lambda theta: f(R*np.exp(1j*theta)) * 1j*R*np.exp(1j*theta), a=0, b=2*np.pi)
+    return cont_int / (2*np.pi*1j)
+
+
+###### Stieltjes
+
+def inversion_stieltjes(x_range, s):
+    """
+    Compute the absolutely continuous density part of the stieltjes transform s over x_range.
+    """
+    y=0.01
+    return np.array([np.imag(s(x+1j*y)) for x in x_range])/np.pi

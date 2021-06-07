@@ -2,7 +2,7 @@ import numpy as np
 import scipy.stats
 
 
-from .spectral_estimators import compute_C_hats, compute_C_hats_sample_from_Ys
+from .spectral_estimators import compute_C_hats
 
 # MCC : Maximum Cross Coherency
 # MCCT : Maximum Cross Coherency Test
@@ -54,8 +54,7 @@ def get_GN(N, B):
     """
     mask = create_mask(N=N, B=B)
     GN = np.linspace(-0.5,0.5, N) * mask
-    GN = np.unique(GN)
-    return GN
+    return GN[mask.astype(bool)]
 
 
 
@@ -90,19 +89,3 @@ def compute_MCC_from_C_hats_sample(C_hats_sample):
         MCC = compute_MCC(C_hats=C_hats)
         MCCs.append(MCC)
     return np.array(MCCs)
-
-
-
-
-
-
-def compute_MCC_from_Ys(Ys, B, nu_fixed=False):
-    '''
-    Compute C_hats for each repeat of the time series
-    '''
-    N = Ys.shape[-1]
-    nu_to_compute = get_GN(N=N, B=B)
-
-    C_hats_sample = [compute_C_hats_sample_from_Ys(Ys=Ys, B=B, nu=nu)[0] for nu in nu_to_compute]
-    MCCs = compute_MCC_from_C_hats_sample(C_hats_sample=C_hats_sample)
-    return MCCs

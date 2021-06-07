@@ -1,7 +1,7 @@
 import numpy as np
 import scipy.linalg
 import scipy.stats
-
+from numba import njit
 
 
 def complex_gaussian(mean, cov, size):
@@ -17,11 +17,16 @@ def complex_gaussian(mean, cov, size):
         (M,N) matrix
 
     """
-    mean_split = np.concatenate([np.real(mean), np.imag(mean)])
-    cov_split = 1/2 * np.concatenate([np.concatenate([np.real(cov), -np.imag(cov)], axis=0),
-                                      np.concatenate([np.imag(cov),  np.real(cov)], axis=0)], axis=1)
+    if np.all(mean == np.zeros(mean.shape[0])) and np.all(cov == np.identity(mean.shape[0])):
+        XY = np.random.normal(loc=0,scale=1/np.sqrt(2),size=(size,2*mean.shape[0]))
 
-    XY = np.random.multivariate_normal(mean=mean_split, cov=cov_split, size=size)
+    else:
+        mean_split = np.concatenate((np.real(mean), np.imag(mean)))
+        cov_split = 1/2 * np.concatenate((np.concatenate((np.real(cov), -np.imag(cov)), axis=0),
+                                          np.concatenate((np.imag(cov),  np.real(cov)), axis=0)), axis=1)
+
+        XY = np.random.multivariate_normal(mean=mean_split, cov=cov_split, size=size)
+
     X = XY[:,:mean.shape[0]]
     Y = XY[:,mean.shape[0]:]
 
@@ -30,7 +35,7 @@ def complex_gaussian(mean, cov, size):
 
 
 
-
+@njit('UniTuple(c16[:,:], 4)(int64, f8, f8, f8, f8)')
 def generate_parameters(M, theta=0, beta=0, delta=0, gamma=0):
     """
     Parameters for the state space model representation of the time series
@@ -42,34 +47,65 @@ def generate_parameters(M, theta=0, beta=0, delta=0, gamma=0):
     for i in range(M):
         D_sim += (np.diag(gamma**(M-i-1)*np.ones(M-i), k=i))
     D_sim *= delta
-    return (A_sim,B_sim,C_sim,D_sim)
+    A_sim, B_sim, C_sim, D_sim = A_sim.astype(np.cdouble),B_sim.astype(np.cdouble),C_sim.astype(np.cdouble),D_sim.astype(np.cdouble)
+    return (A_sim, B_sim, C_sim, D_sim)
 
 
 
 
+# def generate_Y_state_space(N, A_sim, B_sim, C_sim, D_sim):
+#     """
+#     Simulate M-dimensional time series given state space model defined by A,B,C,D.
+#     """
+#     M = A_sim.shape[0]
+#
+#     v = complex_gaussian(mean=np.zeros(M), cov=np.identity(M), size=N)
+#     x = np.zeros((M,N),dtype=complex)#+1j*np.zeros((M,N))
+#     y = np.zeros((M,N),dtype=complex)#+1j*np.zeros((M,N))
+#
+#     if np.array_equal(A_sim, np.zeros((M,M))) and np.array_equal(B_sim, np.identity(M)) and np.array_equal(C_sim,np.identity(M)) and np.array_equal(D_sim, np.zeros((M,M))):
+#         return v
+#
+#     #initialisation
+#     x[:,0] = v[:,0]
+#     y[:,0] = C_sim@x[:,0] + D_sim@v[:,0]
+#
+#     for i in range(1,N):
+#         x[:,i] = A_sim@x[:,i-1] + B_sim@v[:,i]
+#         y[:,i] = C_sim@x[:,i] + D_sim@v[:,i]
+#
+#     return y
+
+
+
+@njit('c16[:,::1](int64, c16[:,::1], c16[:,::1], c16[:,::1], c16[:,::1])', fastmath=False)
 def generate_Y_state_space(N, A_sim, B_sim, C_sim, D_sim):
     """
     Simulate M-dimensional time series given state space model defined by A,B,C,D.
     """
     M = A_sim.shape[0]
 
-    v = complex_gaussian(mean=np.zeros(M), cov=np.identity(M), size=N)
-    x = np.zeros((M,N),dtype=complex)#+1j*np.zeros((M,N))
-    y = np.zeros((M,N),dtype=complex)#+1j*np.zeros((M,N))
+    v = np.random.normal(loc=0,scale=1/np.sqrt(2),size=(M,2*N))
+    v = v[:,:N] + 1j*v[:,N:]
 
-    if np.array_equal(A_sim, np.zeros((M,M))) and np.array_equal(B_sim, np.identity(M)) and np.array_equal(C_sim,np.identity(M)) and np.array_equal(D_sim, np.zeros((M,M))):
-        return v
+    #v = complex_gaussian(mean=np.zeros(M), cov=np.identity(M), size=N)
+    x = np.empty((M,N),dtype='c16')#+1j*np.zeros((M,N))
+    y = np.empty((M,N),dtype='c16')#+1j*np.zeros((M,N))
 
-    #initialisation
+    #if np.array_equal(A_sim, np.zeros((M,M))) and np.array_equal(B_sim, np.identity(M)) and np.array_equal(C_sim,np.identity(M)) and np.array_equal(D_sim, np.zeros((M,M))):
+    #    return v
+
+    Dv = D_sim@v
+    Bv = B_sim@v
+
+    # state computations
     x[:,0] = v[:,0]
-    y[:,0] = C_sim@x[:,0] + D_sim@v[:,0]
-
     for i in range(1,N):
-        x[:,i] = A_sim@x[:,i-1] + B_sim@v[:,i]
-        y[:,i] = C_sim@x[:,i] + D_sim@v[:,i]
+        x[:,i] = A_sim@x[:,i-1] + Bv[:,i]
+
+    y = C_sim@x + Dv
 
     return y
-
 
 
 
@@ -87,40 +123,6 @@ def generate_Y_sample(N, A_sim, B_sim, C_sim, D_sim, nb_repeat):
 
 
 
-########## Spike signal #############
-
-def compute_h_k(M, coef_signal):
-    """
-    Compute the (finite) filtering sequence for the signal model. The scaling is 1/sqrt(M).
-    """
-    approx = 2000
-    return np.sqrt(coef_signal)*np.sqrt(1/M)/np.power(1.1, np.arange(approx))*(1+1j)
-
-
-
-def generate_signal(N, M, coef_signal):
-    """
-    Generate a M-dimensional complex gaussian signal where
-    - each dimension is a repetition of a single scalar signal
-    - the scalar signal is given by a filtering with the h_k sequence
-    """
-
-    if coef_signal == 0:
-        return np.zeros((M,N))
-
-    h_k = compute_h_k(M=M, coef_signal=coef_signal)
-    approx = h_k.shape[0] # size of the filtering sequence
-
-    epsilon = complex_gaussian(mean=np.zeros(1), cov=np.identity(1), size=N+approx)[0,:]
-
-    real = np.convolve(np.real(h_k), np.real(epsilon), mode='valid') - np.convolve(np.imag(h_k), np.imag(epsilon), mode='valid')
-    imag = np.convolve(np.real(h_k), np.imag(epsilon), mode='valid') + np.convolve(np.imag(h_k), np.real(epsilon), mode='valid')
-
-    u = real + 1j*imag
-    u = u[:N]
-    u = np.repeat(u[np.newaxis,:], M, axis=0)
-
-    return u
 
 
 

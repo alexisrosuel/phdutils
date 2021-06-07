@@ -2,8 +2,11 @@ import scipy.stats
 import numpy as np
 
 from .entries import complex_gaussian
+from .misc import complex_integration
 
 
+
+############ Marchenko Pastur
 
 def equivalent_deterministe(c, test_type):
     """
@@ -62,21 +65,6 @@ def marcenko_pastur_cdf(x, c):
     return res
 
 
-
-
-
-def phi(gamma, c):
-    """
-    Maps true eigenvalue to observed eigenvalue in a spike model
-    """
-    result = (1+gamma)*(gamma+c)/gamma
-    indices_in_support = (gamma<np.sqrt(c)) and (gamma>-np.sqrt(c))
-    result[indices_in_support] = (1+np.sqrt(c))**2
-    return result
-
-
-
-
 def t_mp(z, c):
     """
     Stieltjes transform of the MP distribution
@@ -97,3 +85,39 @@ def t_mp(z, c):
 
 def t_mp_tilde(z,c):
     return -1/(z*(1+c*t_mp(z, c)))
+
+
+############# Time series
+
+def A(m, s_v, c):
+    return complex_integration(lambda x: 1/(c*m+1/s_v(x)), a=-0.5, b=0.5)
+
+def compute_m(z, s_v, c):
+    """
+    Compute the Stieltjes transform of the empirical eigenvalue distribution of a random matrix generated as M time series.
+    c = M/N where N is the number of samples
+    s_v is the spectral density of the noise.
+    """
+    m = 1+1j*0.001
+    for i in range(100):
+        new_m = 1/(-z + A(m=m, s_v=s_v, c=c))
+        ecart = (new_m-m)/new_m
+        m = new_m
+        if np.log(np.abs(ecart))<-30:
+            break
+    return m
+
+
+
+
+#############£### Spike
+
+
+def phi(gamma, c):
+    """
+    Maps true eigenvalue to observed eigenvalue in a spike model
+    """
+    result = (1+gamma)*(gamma+c)/gamma
+    indices_in_support = np.logical_and(gamma<np.sqrt(c), gamma>-np.sqrt(c))
+    result[indices_in_support] = (1+np.sqrt(c))**2
+    return result

@@ -6,8 +6,11 @@ from .spectral_estimators import compute_C_hats
 # MCEFT : Maximum Coherency Eigenvalue over Frequencies Test
 
 
-def compute_MCEF_from_C_hats(C_hats):
-    max_by_freq = [np.linalg.eigvalsh(C_hats[i])[-1] for i in range(C_hats.shape[0])]
+def compute_MCEF_from_C_hats(C_hats, K):
+    """
+    K : number of eigenvalues to consider
+    """
+    max_by_freq = [np.sum(np.linalg.eigvalsh(C_hats[i])[-K:]) for i in range(C_hats.shape[0])]
     return np.max(max_by_freq)
 
 
