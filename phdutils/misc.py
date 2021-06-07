@@ -37,6 +37,7 @@ def complex_integration(f, a, b):
 
 
 
+
 def contour_integral(f, R):
     """
     Compute the contour integral of f over the circle C(0,R). The integral is normalized by 2i pi
