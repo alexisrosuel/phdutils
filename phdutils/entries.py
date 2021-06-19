@@ -35,7 +35,7 @@ def complex_gaussian(mean, cov, size):
 
 
 
-@njit('UniTuple(c16[:,:], 4)(int64, f8, f8, f8, f8)')
+@njit('UniTuple(c16[:,:], 4)(int64, f8, c16, f8, f8)')
 def generate_parameters(M, theta=0, beta=0, delta=0, gamma=0):
     """
     Parameters for the state space model representation of the time series
