@@ -58,7 +58,7 @@ def get_indices(nu, N, B):
 
 
 
-@njit('c16[:,:](c16[:,:])', fastmath=False, parallel=True)
+@njit('c16[:,:](c16[:,:])', fastmath=False, parallel=False)
 def compute_S_hat_from_fft_Y(fft_Y):
     M, B = fft_Y.shape
     S_hat = np.zeros((M,M),dtype='c16')
