@@ -52,5 +52,5 @@ def inversion_stieltjes(x_range, s):
     """
     Compute the absolutely continuous density part of the stieltjes transform s over x_range.
     """
-    y=0.01
+    y=0.000001
     return np.array([np.imag(s(x+1j*y)) for x in x_range])/np.pi
